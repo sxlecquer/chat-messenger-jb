@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.util.HashSet;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.logging.Level;
@@ -35,8 +36,10 @@ public class ChatClient {
         Scanner scanner = new Scanner(System.in);
         while(true) {
             String message = scanner.nextLine();
-            out.writeObject(new Message(username, message));
-            out.flush();
+            if(!message.isBlank()) {
+                out.writeObject(new Message(username, message.trim()));
+                out.flush();
+            }
         }
     }
 
@@ -54,9 +57,24 @@ public class ChatClient {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private Set<Integer> requestServerPorts() {
+        try(Socket temp = new Socket(ADDRESS, ChatServer.SERVER_PORT)) {
+            out = new ObjectOutputStream(temp.getOutputStream());
+            out.writeInt(-1);
+            out.flush();
+
+            in = new ObjectInputStream(temp.getInputStream());
+            return (Set<Integer>) in.readObject();
+        } catch(IOException | ClassNotFoundException e) {
+            LOGGER.log(Level.WARNING, e.getMessage(), e);
+            return new HashSet<>();
+        }
+    }
+
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
-        Set<Integer> serverPorts = ChatServer.getPorts();
+        Set<Integer> serverPorts = new ChatClient("temp").requestServerPorts();
 
         int port;
         if(!serverPorts.isEmpty()) {
@@ -78,8 +96,8 @@ public class ChatClient {
 
     private static int getPort(Scanner scanner) {
         int port;
+        System.out.println("Enter port number (0-65535):");
         while(true) {
-            System.out.println("Enter port number (0-65535):");
             if(scanner.hasNextInt()) {
                 port = scanner.nextInt();
                 scanner.nextLine();
@@ -98,11 +116,11 @@ public class ChatClient {
 
     private static int getExistingPort(Scanner scanner, Set<Integer> serverPorts) {
         int port;
+        if(serverPorts.size() == 1) return serverPorts.iterator().next();
+        System.out.println("Chat ports available:");
+        serverPorts.forEach(System.out::println);
+        System.out.println("Enter a port number from the list to join an existing chat:");
         while(true) {
-            System.out.println("Chat ports available:");
-            serverPorts.forEach(System.out::println);
-
-            System.out.println("Enter a port number from the list to join an existing chat:");
             if(scanner.hasNextInt()) {
                 port = scanner.nextInt();
                 scanner.nextLine();
@@ -130,8 +148,8 @@ public class ChatClient {
 
     private static String getUsername(Scanner scanner) {
         String username;
+        System.out.println("Enter your username:");
         while(true) {
-            System.out.println("Enter your username:");
             username = scanner.nextLine();
             if(!username.isEmpty() && username.length() <= 30) break;
             System.out.println("Invalid username. Must be between 1 and 30 characters long.");

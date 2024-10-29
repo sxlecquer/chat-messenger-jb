@@ -18,10 +18,16 @@ public class ChatServer {
             while(true) {
                 Socket clientSocket = serverSocket.accept();
                 ObjectInputStream in = new ObjectInputStream(clientSocket.getInputStream());
-                PORT_MAP.put(clientSocket.getPort(), in.readInt());
-                System.out.printf("New client connected to %s:%d\n", clientSocket.getInetAddress().getHostAddress(),
-                        PORT_MAP.get(clientSocket.getPort()));
-                new Thread(new ClientHandler(clientSocket, in)).start();
+                int port = in.readInt();
+                if(port != -1) {
+                    PORT_MAP.put(clientSocket.getPort(), port);
+                    System.out.printf("New client connected to %s:%d\n", clientSocket.getInetAddress().getHostAddress(), port);
+                    new Thread(new ClientHandler(clientSocket, in)).start();
+                } else {
+                    ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
+                    out.writeObject(new HashSet<>(PORT_MAP.values()));
+                    out.flush();
+                }
             }
         } catch(IOException e) {
             LOGGER.log(Level.SEVERE, e.getMessage(), e);
